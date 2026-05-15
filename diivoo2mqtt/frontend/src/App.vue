@@ -335,6 +335,137 @@
           </div>
         </article>
       </section>
+
+      <!-- Protocol Debug Panel -->
+      <section class="theme-panel rounded-[28px] border p-4 backdrop-blur-[10px]">
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-2 text-left"
+          @click="debugOpen = !debugOpen"
+        >
+          <span class="text-sm font-bold tracking-wide">Protocol Debug</span>
+          <span class="theme-text-muted text-xs">{{ debugOpen ? '▲ collapse' : '▼ expand' }}</span>
+        </button>
+
+        <div v-if="debugOpen" class="mt-4 grid gap-3">
+          <!-- Row 1: Device + CMD + SEQ -->
+          <div class="grid gap-2 sm:grid-cols-3">
+            <div class="grid gap-1">
+              <label class="theme-text-muted text-xs font-semibold uppercase tracking-wide">Device</label>
+              <select
+                v-model="debugValveId"
+                class="theme-soft rounded-xl border px-3 py-2 text-sm font-mono"
+              >
+                <option value="" disabled>Select device</option>
+                <option v-for="d in sortedDevices" :key="d.valveId" :value="d.valveId">
+                  {{ d.valveId }} ({{ d.model || 'unknown' }})
+                </option>
+              </select>
+            </div>
+
+            <div class="grid gap-1">
+              <label class="theme-text-muted text-xs font-semibold uppercase tracking-wide">CMD (hex)</label>
+              <div class="flex items-center gap-1">
+                <span class="theme-text-muted text-sm font-mono">0x</span>
+                <input
+                  v-model="debugCmd"
+                  type="text"
+                  maxlength="2"
+                  placeholder="20"
+                  class="theme-soft min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm font-mono"
+                />
+              </div>
+            </div>
+
+            <div class="grid gap-1">
+              <label class="theme-text-muted text-xs font-semibold uppercase tracking-wide">SEQ</label>
+              <div class="flex items-center gap-2">
+                <label class="flex items-center gap-1.5 text-xs">
+                  <input v-model="debugSeqAuto" type="checkbox" class="rounded" />
+                  Auto
+                </label>
+                <div class="flex items-center gap-1">
+                  <span class="theme-text-muted text-sm font-mono">0x</span>
+                  <input
+                    v-model="debugSeq"
+                    type="text"
+                    maxlength="2"
+                    placeholder="00"
+                    :disabled="debugSeqAuto"
+                    class="theme-soft w-16 rounded-xl border px-3 py-2 text-sm font-mono disabled:opacity-40"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 2: Payload + Listen + Refresh trigger -->
+          <div class="grid gap-2 sm:grid-cols-3">
+            <div class="grid gap-1 sm:col-span-1">
+              <label class="theme-text-muted text-xs font-semibold uppercase tracking-wide">Payload (hex bytes)</label>
+              <input
+                v-model="debugPayload"
+                type="text"
+                placeholder="04 01"
+                class="theme-soft rounded-xl border px-3 py-2 text-sm font-mono"
+              />
+            </div>
+
+            <div class="grid gap-1">
+              <label class="theme-text-muted text-xs font-semibold uppercase tracking-wide">Listen window (ms)</label>
+              <input
+                v-model="debugListenMs"
+                type="number"
+                min="0"
+                max="10000"
+                class="theme-soft rounded-xl border px-3 py-2 text-sm font-mono"
+              />
+            </div>
+
+            <div class="grid gap-1">
+              <label class="theme-text-muted text-xs font-semibold uppercase tracking-wide">Options</label>
+              <label class="flex items-center gap-2 text-sm">
+                <input v-model="debugRefreshTrigger" type="checkbox" class="rounded" />
+                Refresh trigger (wait for follow-ups)
+              </label>
+            </div>
+          </div>
+
+          <!-- Send button -->
+          <div>
+            <button
+              type="button"
+              class="theme-button-primary inline-flex min-h-[40px] items-center gap-2 rounded-full border px-5 py-2 text-sm font-bold transition hover:-translate-y-[1px] disabled:cursor-wait disabled:opacity-60"
+              :disabled="debugSending || !debugValveId"
+              @click="sendDebugPacket"
+            >
+              {{ debugSending ? 'Sending…' : 'Send Packet' }}
+            </button>
+          </div>
+
+          <!-- Result -->
+          <div v-if="debugResult" class="theme-soft rounded-2xl border p-3">
+            <div v-if="debugResult.ok" class="grid gap-1.5">
+              <p class="text-xs font-semibold text-green-600 dark:text-green-400">
+                ✓ Sent — {{ debugResult.followUps.length }} follow-up packet(s)
+              </p>
+              <div
+                v-for="(p, i) in debugResult.followUps"
+                :key="i"
+                class="theme-text-muted rounded-lg bg-black/5 px-3 py-1.5 font-mono text-xs dark:bg-white/5"
+              >
+                ← CMD {{ p.cmd }} &nbsp; SEQ {{ p.seq }} &nbsp; {{ p.payload || '(no payload)' }}
+              </div>
+              <p v-if="debugResult.followUps.length === 0" class="theme-text-muted text-xs">
+                No follow-up packets received within listen window.
+              </p>
+            </div>
+            <p v-else class="text-xs font-semibold text-red-500">
+              ✗ {{ debugResult.error }}
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   </main>
 
@@ -712,6 +843,17 @@ const diagnosticLogs = ref([])
 const rawJsonContent = ref('')
 const rawJsonError = ref('')
 const isRestarting = ref(false)
+
+const debugOpen = ref(false)
+const debugValveId = ref('')
+const debugCmd = ref('20')
+const debugPayload = ref('04 01')
+const debugSeqAuto = ref(true)
+const debugSeq = ref('')
+const debugListenMs = ref(1800)
+const debugRefreshTrigger = ref(true)
+const debugSending = ref(false)
+const debugResult = ref(null)
 
 const planDraft = reactive({
   mode: 'normal',
@@ -1406,6 +1548,24 @@ function removeDevice(valveId) {
   }
 }
 
+function sendDebugPacket() {
+  if (!socket || !debugValveId.value) return
+  const payloadBytes = debugPayload.value
+    .trim().split(/\s+/).filter(s => s.length > 0)
+    .map(s => parseInt(s.replace(/^0x/i, ''), 16))
+    .filter(b => !isNaN(b))
+  debugSending.value = true
+  debugResult.value = null
+  socket.emit('debugSendPacket', {
+    valveId: Number(debugValveId.value),
+    cmd: debugCmd.value,
+    payload: payloadBytes,
+    seq: debugSeqAuto.value ? null : debugSeq.value,
+    listenMs: Number(debugListenMs.value),
+    refreshTrigger: debugRefreshTrigger.value,
+  })
+}
+
 function formatTimestamp(timestamp) {
   if (!timestamp) return 'Unknown'
   const date = new Date(timestamp)
@@ -1578,6 +1738,10 @@ onMounted(async () => {
   socket.on('channelConfigState', handleChannelConfigState)
   socket.on('gatewaysState', (gws) => { gateways.value = Array.isArray(gws) ? gws : [] })
   socket.on('diagnosticLogs', handleDiagnosticLogs)
+  socket.on('debugPacketResult', (result) => {
+    debugSending.value = false
+    debugResult.value = result
+  })
 
   intervalId = window.setInterval(() => {
     now.value = Date.now()
@@ -1596,6 +1760,7 @@ onUnmounted(() => {
   socket?.off('channelConfigState', handleChannelConfigState)
   socket?.off('gatewaysState')
   socket?.off('diagnosticLogs', handleDiagnosticLogs)
+  socket?.off('debugPacketResult')
 
   stopHeartbeat()
   clearReconnectTimer()

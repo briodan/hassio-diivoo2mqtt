@@ -520,6 +520,55 @@ class WebServer {
                 }
             });
 
+            socket.on('debugSendPacket', async ({ valveId, cmd, payload, seq, listenMs, refreshTrigger }) => {
+                try {
+                    const device = this.hub.devices.get(Number(valveId));
+                    if (!device) {
+                        socket.emit('debugPacketResult', { ok: false, error: `Device ${valveId} not found` });
+                        return;
+                    }
+
+                    const cmdByte = parseInt(String(cmd).replace(/^0x/i, ''), 16);
+                    if (isNaN(cmdByte) || cmdByte < 0 || cmdByte > 255) {
+                        socket.emit('debugPacketResult', { ok: false, error: `Invalid CMD: ${cmd}` });
+                        return;
+                    }
+
+                    const payloadBytes = (Array.isArray(payload) ? payload : [])
+                        .map(b => parseInt(String(b).replace(/^0x/i, ''), 16))
+                        .filter(b => !isNaN(b) && b >= 0 && b <= 255);
+
+                    const seqByte = (seq !== null && seq !== undefined && seq !== '')
+                        ? (parseInt(String(seq).replace(/^0x/i, ''), 16) & 0xFF)
+                        : device.nextCommandSeq();
+
+                    const listenWindow = Number.isFinite(Number(listenMs)) ? Number(listenMs) : 1800;
+
+                    console.log(`[Debug] → valve ${valveId} cmd=0x${cmdByte.toString(16).padStart(2,'0')} seq=0x${seqByte.toString(16).padStart(2,'0')} payload=[${payloadBytes.map(b => b.toString(16).padStart(2,'0')).join(' ')}]`);
+
+                    const result = await device.sendHubPacket(
+                        seqByte,
+                        cmdByte,
+                        payloadBytes,
+                        `Debug 0x${cmdByte.toString(16).padStart(2,'0')}`,
+                        device.getDownlinkChannel(),
+                        device.getDefaultListenChannel(),
+                        { txProfile: 'long', refreshTrigger: !!refreshTrigger, listenWindowMs: listenWindow }
+                    );
+
+                    const followUps = Array.isArray(result) ? result.map(p => ({
+                        cmd: `0x${p.cmd.toString(16).padStart(2, '0')}`,
+                        seq: `0x${p.seq.toString(16).padStart(2, '0')}`,
+                        payload: p.payload ? Array.from(p.payload).map(b => b.toString(16).padStart(2, '0')).join(' ') : ''
+                    })) : [];
+
+                    socket.emit('debugPacketResult', { ok: true, followUps });
+                } catch (err) {
+                    console.error(`[Debug] Error: ${err.message}`);
+                    socket.emit('debugPacketResult', { ok: false, error: err.message });
+                }
+            });
+
             socket.on('saveRawDevicesJson', (payload, ack) => {
                 if (typeof ack !== 'function') return;
                 try {
