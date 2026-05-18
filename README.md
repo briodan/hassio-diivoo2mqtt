@@ -32,7 +32,7 @@ This isn't a stripped-down hack. It replicates the full feature set of the origi
 - **Auto-discovery** – your valves show up in Home Assistant as switches via MQTT, no manual YAML needed
 - **OTA firmware updates** – update your gateway firmware from the HA UI with one click (after the initial USB flash)
 - **Automatic gateway discovery** – flashed gateways announce themselves via mDNS and just show up
-- **Built-in web UI** via Ingress – manage gateways, see device states, trigger diagnostics
+- **Built-in web UI** via Ingress – manage gateways, see device states, trigger diagnostics, and send raw protocol packets via the built-in debug panel
 - **WiFi setup portal** on the gateway itself – if the ESP32 can't connect, it opens an AP with a captive portal to configure credentials
 
 ## What you need
