@@ -29,9 +29,7 @@ const myHubConfig = {
     }
 };
 
-const myGateways = [];
-
-const hub = new SmartHub(myHubConfig, myGateways);
+const hub = new SmartHub(myHubConfig);
 
 const mqttBridge = new MqttBridge(hub, {
     brokerUrl: process.env.MQTT_BROKER || 'mqtt://127.0.0.1:1883',
