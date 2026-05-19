@@ -377,7 +377,8 @@ class SmartHub extends EventEmitter {
         const node = new GatewayNode({
             id: gwInfo.id,
             ip: gwInfo.ip,
-            port: gwInfo.port
+            port: gwInfo.port,
+            alias: gwInfo.alias || null
         }, this);
 
         this.gateways.set(node.id, node);
@@ -493,6 +494,17 @@ class SmartHub extends EventEmitter {
 
     sendGatewayOta(gatewayId, url) {
         return this._getGatewayOrThrow(gatewayId).sendOta(url);
+    }
+
+    renameGateway(gatewayId, alias) {
+        const gw = this.gateways.get(gatewayId);
+        if (!gw) return false;
+        gw.alias = alias && alias.trim() ? alias.trim() : null;
+        this.gatewayStore.save(this.gateways);
+        this.emit('gatewayRenamed', { gatewayId, alias: gw.alias });
+        this.emit('gatewayStateUpdate');
+        console.log(`[SmartHub] Gateway ${gatewayId} renamed to: ${gw.alias ?? '(default)'}`);
+        return true;
     }
 
     getGateway(gatewayId) {

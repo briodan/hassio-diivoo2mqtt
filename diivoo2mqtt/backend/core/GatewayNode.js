@@ -10,7 +10,11 @@ class GatewayNode {
         this.id = config.id;
         this.ip = config.ip;
         this.port = config.port;
+        this.alias = config.alias || null;
         this.hub = hubInstance;
+
+        this.ledState = 'OFF';
+        this.buttonPressed = false;
 
         this.client = null;
         this.rl = null;

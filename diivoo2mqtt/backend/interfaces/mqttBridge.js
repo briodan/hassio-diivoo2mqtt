@@ -83,6 +83,10 @@ class MqttBridge {
         });
 
         // Gateway-Updates
+        this.hub.on('gatewayRenamed', ({ gatewayId }) => {
+            this.discoveredGateways.delete(gatewayId);
+            this.publishGatewayAutoDiscovery(gatewayId);
+        });
         this.hub.on('gatewayButton', this.handleGatewayButton.bind(this));
         this.hub.on('gatewayVersion', this.handleGatewayVersion.bind(this));
         this.hub.on('gatewayConnection', this.handleGatewayConnection.bind(this));
@@ -340,9 +344,10 @@ class MqttBridge {
         const stateTopic = `diivoo/gateway/${gatewayId}/state`;
         const discoveryPrefix = this.discoveryPrefix;
 
+        const gwNode = this._getGatewayNode(gatewayId);
         const deviceBase = {
             identifiers: [`diivoo_gateway_${gatewayId}`],
-            name: `Diivoo Gateway ${gatewayId}`,
+            name: gwNode?.alias || `Diivoo Gateway ${gatewayId}`,
             manufacturer: 'Diivoo Custom Hub',
             model: gwState.model || 'Custom Gateway'
         };
@@ -570,11 +575,16 @@ class MqttBridge {
         gwState.buttonPressed = !!ev.pressed;
         gwState.lastUpdateTs = Date.now();
 
+        const node = this._getGatewayNode(ev.gatewayId);
+        if (node) node.buttonPressed = gwState.buttonPressed;
+
         this.publishGatewayState(ev.gatewayId);
+        this.hub.emit('gatewayStateUpdate');
     }
 
     handleGatewayVersion(ev) {
         const { gatewayId, version, model } = ev;
+        console.log(`[MQTT] Gateway ${gatewayId} version: model=${model}, version=${version}`);
         const gwState = this._getGatewayState(gatewayId);
         gwState.version = version || gwState.version;
         gwState.model = model || gwState.model;
@@ -759,7 +769,11 @@ class MqttBridge {
                 gwState.ledState = desiredState;
                 gwState.lastUpdateTs = Date.now();
 
+                const node = this._getGatewayNode(gatewayId);
+                if (node) node.ledState = desiredState;
+
                 this.publishGatewayState(gatewayId);
+                this.hub.emit('gatewayStateUpdate');
             } catch (err) {
                 console.error(`[MQTT] LED command failed (${gatewayId}): ${err.message}`);
             }
@@ -806,7 +820,9 @@ class MqttBridge {
             try {
                 const gwNode = this._getGatewayNode(gatewayId);
                 if (gwNode && gwNode.isConnected) {
-                    gwNode.getVersion().catch(() => {});
+                    gwNode.getVersion().catch(err => {
+                        console.warn(`[MQTT] VERSION GET failed (${gatewayId}): ${err.message}`);
+                    });
                 }
             } catch (err) {
                 console.error(`[MQTT] VERSION GET failed (${gatewayId}): ${err.message}`);
