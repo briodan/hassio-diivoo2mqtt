@@ -46,7 +46,8 @@ class GatewayStore {
                 .map(gw => ({
                     id: gw.id,
                     ip: gw.ip,
-                    port: gw.port
+                    port: gw.port,
+                    ...(gw.alias ? { alias: gw.alias } : {})
                 }));
 
             fs.writeFile(this.filePath, JSON.stringify(serialized, null, 2), 'utf8', (err) => {
