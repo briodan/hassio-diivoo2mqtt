@@ -84,7 +84,15 @@ class GatewayNode {
 
             console.log(`[+] Gateway '${this.id}' ready.`);
 
-            this.getVersion().catch(() => { });
+            this.getVersion().then(versionInfo => {
+                if (versionInfo?.uniqueId) {
+                    this.hub.emit('gatewayIdentified', {
+                        node: this,
+                        uniqueId: versionInfo.uniqueId,
+                        tempId: this.id,
+                    });
+                }
+            }).catch(() => { });
         });
 
         this.rl = readline.createInterface({
@@ -314,12 +322,14 @@ class GatewayNode {
     _parseVersionLine(line) {
         const parts = line.split(':');
         const model = parts[1] || null;
-        const version = parts.length > 2 ? parts.slice(2).join(':') : null;
+        const version = parts[2] || null;
+        const uniqueId = parts[3] || null;
 
         return {
             gatewayId: this.id,
             model,
             version,
+            uniqueId,
             raw: line,
             ts: Date.now(),
         };
