@@ -100,6 +100,20 @@ const CHANNEL_ENTITIES = [
             entity_category: 'diagnostic',
         }),
     },
+    {
+        id: 'schedules',
+        domain: 'sensor',
+        nameKey: 'valve_schedules',
+        nameSuffix: 'Schedules',
+        extra: (valveId, ch) => ({
+            value_template: `{{ value_json.channels['${ch}'].schedules | length }}`,
+            unit_of_measurement: 'schedules',
+            json_attributes_topic: `diivoo/${valveId}/state`,
+            json_attributes_template: `{{ {'schedules': value_json.channels['${ch}'].schedules} | tojson }}`,
+            icon: 'mdi:calendar-clock-outline',
+            entity_category: 'diagnostic',
+        }),
+    },
 ];
 
 function channelEntityObjectId(valveId, ch, entityId) {
