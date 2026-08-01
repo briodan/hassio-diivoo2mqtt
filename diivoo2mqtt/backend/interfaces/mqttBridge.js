@@ -114,6 +114,17 @@ const CHANNEL_ENTITIES = [
             entity_category: 'diagnostic',
         }),
     },
+    {
+        id: 'next_watering',
+        domain: 'sensor',
+        nameKey: 'valve_next_watering',
+        nameSuffix: 'Next Watering',
+        extra: (valveId, ch) => ({
+            value_template: `{{ value_json.channels['${ch}'].nextWatering or '' }}`,
+            device_class: 'timestamp',
+            icon: 'mdi:calendar-arrow-right',
+        }),
+    },
 ];
 
 function channelEntityObjectId(valveId, ch, entityId) {
