@@ -826,6 +826,7 @@ let missedHeartbeats = 0
 
 const seenDeviceIds = new Set()
 const seenGatewayIds = new Set()
+const seenChannelKeys = new Set()
 
 const PRESETS = [5, 10, 30, 60]
 const sheetTitleId = 'sheetTitle'
@@ -1180,6 +1181,12 @@ function mergeDeviceUpdate(device, targetObject = null) {
 
   for (const [channelId, channel] of Object.entries(device.channels || {})) {
     const prev = previous?.channels?.[channelId]
+    const key = channelKey(device.valveId, channelId)
+
+    if (isMobile.value && !seenChannelKeys.has(key)) {
+      collapsedChannels.value = new Set(collapsedChannels.value).add(key)
+    }
+    seenChannelKeys.add(key)
 
     const syncChanged =
       !prev ||
